@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -41,9 +44,8 @@ Follow these rules strictly:
    - If the image uses a dark or light theme, replicate that theme.
 
 4. **Images & Icons**: If the image contains photographs, illustrations, icons, or logos,
-   add an <img> tag with a descriptive alt attribute and a placeholder src like
-   "https://via.placeholder.com/WIDTHxHEIGHT" with appropriate dimensions.
-   For simple icons, you may use inline SVG or Unicode symbols.
+   do NOT use <img> tags or external placeholder URLs under any circumstances, as they cause rendering hangs.
+   Instead, replicate them using purely CSS styling (e.g., background colours/shapes), inline SVG code, or Unicode symbols.
 
 5. **Responsiveness**: Make the HTML reasonably responsive so it looks good at different
    viewport widths, but prioritise accuracy over responsiveness.
@@ -175,8 +177,8 @@ func handleConvert(c *gin.Context, fallbackKey string) {
 	// Call the Groq-hosted model via LangChain
 	ctx := context.Background()
 	resp, err := llm.GenerateContent(ctx, messages,
-		llms.WithMaxTokens(8192),
-		llms.WithTemperature(0.2),
+		llms.WithMaxTokens(4000),
+		llms.WithTemperature(0.1),
 	)
 	if err != nil {
 		log.Printf("LLM error: %v", err)
@@ -204,9 +206,63 @@ func handleConvert(c *gin.Context, fallbackKey string) {
 	htmlContent = strings.TrimSpace(htmlContent)
 
 	log.Printf("Successfully generated HTML (%d bytes) for %s", len(htmlContent), header.Filename)
+	log.Printf("HTML content: %s", htmlContent)
+
+	// Convert the generated HTML to PDF using headless Chrome
+	pdfBytes, err := convertHTMLToPDF(htmlContent)
+	if err != nil {
+		log.Printf("PDF conversion error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to generate PDF: %v", err),
+		})
+		return
+	}
+
+	log.Printf("Successfully generated PDF (%d bytes) for %s", len(pdfBytes), header.Filename)
+	pdfBase64 := base64.StdEncoding.EncodeToString(pdfBytes)
 
 	c.JSON(http.StatusOK, gin.H{
-		"html":     htmlContent,
-		"filename": header.Filename,
+		"html":      htmlContent,
+		"pdfBase64": pdfBase64,
+		"filename":  header.Filename,
 	})
+}
+
+// convertHTMLToPDF uses chromedp (headless Chrome) to render HTML to a PDF buffer.
+func convertHTMLToPDF(html string) ([]byte, error) {
+	// Create headless chrome context
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+
+	// Add a timeout to prevent hanging
+	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	// Encode HTML to data URI to bypass file:// security
+	htmlBase64 := base64.StdEncoding.EncodeToString([]byte(html))
+	dataURI := "data:text/html;base64," + htmlBase64
+
+	var pdfBuffer []byte
+	err := chromedp.Run(ctx,
+		// Navigate blocks until the load event fires, ensuring scripts like Tailwind CDN complete
+		chromedp.Navigate(dataURI),
+		// Brief sleep to allow any final JavaScript compilation (e.g. Tailwind classes rendering)
+		chromedp.Sleep(1*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			buf, _, err := page.PrintToPDF().
+				WithPrintBackground(true).
+				WithPreferCSSPageSize(true).
+				Do(ctx)
+			if err != nil {
+				return err
+			}
+			pdfBuffer = buf
+			return nil
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return pdfBuffer, nil
 }

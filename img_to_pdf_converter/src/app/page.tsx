@@ -10,34 +10,81 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [pdfData, setPdfData] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const startProcessing = useCallback(() => {
+  const startProcessing = useCallback(async () => {
+    if (!file) return;
+
     setIsFinished(false);
     setIsProcessing(true);
+    setErrorMsg(null);
 
-    // Mock: simulate AI processing time
-    timeoutRef.current = setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('http://localhost:8080/convert', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiKey,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to process image');
+      }
+
+      const data = await response.json();
+      setPdfData(data.pdfBase64);
       setIsProcessing(false);
       setIsFinished(true);
-    }, 6000);
-  }, []);
+
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message);
+      setIsProcessing(false);
+    }
+  }, [file, apiKey]);
 
   const handleFileSelect = useCallback((selectedFile: File) => {
     setFile(selectedFile);
+    setErrorMsg(null);
   }, []);
 
   const handleFileClear = useCallback(() => {
     setFile(null);
+    setErrorMsg(null);
   }, []);
 
   const handleDownload = useCallback(() => {
-    alert("PDF download will start here once backend is connected!");
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (pdfData) {
+      // Decode base64 and create a blob URL to download
+      const byteCharacters = atob(pdfData);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file?.name ? file.name.replace(/\.[^/.]+$/, "") + '.pdf' : 'converted.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
     setFile(null);
+    setPdfData(null);
     setIsFinished(false);
     setIsProcessing(false);
-  }, []);
+  }, [pdfData, file]);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-6 overflow-hidden">
@@ -86,7 +133,13 @@ export default function Home() {
                 disabled={isProcessing}
               />
               
-              {file && (
+              {errorMsg && (
+                <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 max-w-lg text-center fade-in text-sm font-medium">
+                  {errorMsg}
+                </div>
+              )}
+              
+              {file && !errorMsg && (
                 <button
                   onClick={startProcessing}
                   className="mt-8 group flex items-center gap-3 px-8 py-4 rounded-full font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white fade-in-up"
