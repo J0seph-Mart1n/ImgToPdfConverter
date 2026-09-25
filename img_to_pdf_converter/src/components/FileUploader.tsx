@@ -5,10 +5,11 @@ import { UploadCloud, FileImage, X } from 'lucide-react';
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
+  onFileClear?: () => void;
   disabled?: boolean;
 }
 
-export default function FileUploader({ onFileSelect, disabled }: FileUploaderProps) {
+export default function FileUploader({ onFileSelect, onFileClear, disabled }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
     setSelectedFile(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    if (onFileClear) onFileClear();
   };
 
   return (

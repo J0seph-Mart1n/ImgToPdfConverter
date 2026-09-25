@@ -2,82 +2,42 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import FileUploader from '@/components/FileUploader';
-import ProgressSteps, { Step } from '@/components/ProgressSteps';
-import { Sparkles } from 'lucide-react';
-
-const INITIAL_STEPS: Step[] = [
-  { id: 'analyze', label: 'AI Analysis', status: 'idle' },
-  { id: 'html', label: 'Generate HTML', status: 'idle' },
-  { id: 'pdf', label: 'Create PDF', status: 'idle' },
-];
+import ProcessingLoader from '@/components/ProcessingLoader';
+import { Sparkles, Key, Wand2 } from 'lucide-react';
 
 export default function Home() {
+  const [apiKey, setApiKey] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
-
-  const clearAllTimeouts = useCallback(() => {
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
-  }, []);
-
-  const updateStep = useCallback((index: number, status: 'idle' | 'loading' | 'completed') => {
-    setSteps(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
-  }, []);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startProcessing = useCallback(() => {
-    clearAllTimeouts();
-
-    // Reset to clean state first
-    setSteps(INITIAL_STEPS);
     setIsFinished(false);
     setIsProcessing(true);
 
-    // Use a small delay so the reset renders before animations start
-    const t0 = setTimeout(() => {
-      updateStep(0, 'loading');
-
-      const t1 = setTimeout(() => {
-        updateStep(0, 'completed');
-        updateStep(1, 'loading');
-
-        const t2 = setTimeout(() => {
-          updateStep(1, 'completed');
-          updateStep(2, 'loading');
-
-          const t3 = setTimeout(() => {
-            updateStep(2, 'completed');
-
-            const t4 = setTimeout(() => {
-              setIsFinished(true);
-              setIsProcessing(false);
-            }, 500);
-            timeoutsRef.current.push(t4);
-          }, 2500);
-          timeoutsRef.current.push(t3);
-        }, 3000);
-        timeoutsRef.current.push(t2);
-      }, 2000);
-      timeoutsRef.current.push(t1);
-    }, 50);
-    timeoutsRef.current.push(t0);
-  }, [clearAllTimeouts, updateStep]);
+    // Mock: simulate AI processing time
+    timeoutRef.current = setTimeout(() => {
+      setIsProcessing(false);
+      setIsFinished(true);
+    }, 6000);
+  }, []);
 
   const handleFileSelect = useCallback((selectedFile: File) => {
     setFile(selectedFile);
-    startProcessing();
-  }, [startProcessing]);
+  }, []);
+
+  const handleFileClear = useCallback(() => {
+    setFile(null);
+  }, []);
 
   const handleDownload = useCallback(() => {
     alert("PDF download will start here once backend is connected!");
-    clearAllTimeouts();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setFile(null);
     setIsFinished(false);
     setIsProcessing(false);
-    setSteps(INITIAL_STEPS);
-  }, [clearAllTimeouts]);
+  }, []);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-6 overflow-hidden">
@@ -101,24 +61,49 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="w-full">
-          {(!file || isProcessing) && (
-             <FileUploader
-               onFileSelect={handleFileSelect}
-               disabled={isProcessing}
-             />
+        <div className="w-full max-w-2xl mb-8 fade-in-up" style={{ animationDelay: '100ms' }}>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-blue-500 transition-colors">
+              <Key size={18} />
+            </div>
+            <input
+              type="password"
+              placeholder="Enter your API Key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="w-full pl-11 pr-4 py-4 rounded-2xl glass dark:glass-dark border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 shadow-sm hover:shadow-md"
+              disabled={isProcessing}
+            />
+          </div>
+        </div>
+
+        <div className="w-full flex flex-col items-center">
+          {!isProcessing && !isFinished && (
+            <>
+              <FileUploader
+                onFileSelect={handleFileSelect}
+                onFileClear={handleFileClear}
+                disabled={isProcessing}
+              />
+              
+              {file && (
+                <button
+                  onClick={startProcessing}
+                  className="mt-8 group flex items-center gap-3 px-8 py-4 rounded-full font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white fade-in-up"
+                >
+                  <Wand2 size={20} className="group-hover:rotate-12 transition-transform" />
+                  <span>Convert to PDF</span>
+                </button>
+              )}
+            </>
           )}
         </div>
 
-        {(isProcessing || isFinished) && (
-          <div className="w-full mt-4 fade-in-up">
-            <ProgressSteps
-              steps={steps}
-              isFinished={isFinished}
-              onDownload={handleDownload}
-            />
-          </div>
-        )}
+        <ProcessingLoader
+          isProcessing={isProcessing}
+          isFinished={isFinished}
+          onDownload={handleDownload}
+        />
 
       </main>
     </div>
