@@ -1,5 +1,5 @@
 # Start from the official Golang image
-FROM golang:1.22-alpine
+FROM golang:1.27-alpine
 
 # Install Chromium (required for chromedp HTML-to-PDF)
 RUN apk add --no-cache \
