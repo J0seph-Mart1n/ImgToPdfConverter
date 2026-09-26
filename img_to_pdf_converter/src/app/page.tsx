@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import FileUploader from '@/components/FileUploader';
 import ProcessingLoader from '@/components/ProcessingLoader';
-import { Sparkles, Key, Wand2 } from 'lucide-react';
+import { Image as ImageIcon, FileText, ArrowRight, Key, FileDown } from 'lucide-react';
 
 export default function Home() {
   const [apiKey, setApiKey] = useState('');
@@ -24,7 +24,8 @@ export default function Home() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('http://localhost:8080/convert', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const response = await fetch(`${backendUrl}/convert`, {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,
@@ -97,8 +98,10 @@ export default function Home() {
 
         <div className="text-center mb-12 fade-in-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-semibold mb-6 ring-1 ring-blue-500/20">
-            <Sparkles size={16} />
-            <span>AI-Powered Converter</span>
+            <ImageIcon size={16} />
+            <ArrowRight size={14} className="opacity-50 mx-[-4px]" />
+            <FileText size={16} />
+            <span className="ml-1">AI-Powered Converter</span>
           </div>
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-6">
             Image to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400">PDF Magic</span>
@@ -115,7 +118,7 @@ export default function Home() {
             </div>
             <input
               type="password"
-              placeholder="Enter your API Key"
+              placeholder="Enter your Groq API Key"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               className="w-full pl-11 pr-4 py-4 rounded-2xl glass dark:glass-dark border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 shadow-sm hover:shadow-md"
@@ -144,7 +147,7 @@ export default function Home() {
                   onClick={startProcessing}
                   className="mt-8 group flex items-center gap-3 px-8 py-4 rounded-full font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white fade-in-up"
                 >
-                  <Wand2 size={20} className="group-hover:rotate-12 transition-transform" />
+                  <FileDown size={20} className="group-hover:-translate-y-1 transition-transform" />
                   <span>Convert to PDF</span>
                 </button>
               )}
@@ -156,6 +159,7 @@ export default function Home() {
           isProcessing={isProcessing}
           isFinished={isFinished}
           onDownload={handleDownload}
+          pdfData={pdfData}
         />
 
       </main>

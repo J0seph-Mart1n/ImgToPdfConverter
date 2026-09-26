@@ -7,13 +7,14 @@ interface ProcessingLoaderProps {
   isProcessing: boolean;
   isFinished: boolean;
   onDownload?: () => void;
+  pdfData?: string | null;
 }
 
-export default function ProcessingLoader({ isProcessing, isFinished, onDownload }: ProcessingLoaderProps) {
+export default function ProcessingLoader({ isProcessing, isFinished, onDownload, pdfData }: ProcessingLoaderProps) {
   if (!isProcessing && !isFinished) return null;
 
   return (
-    <div className="w-full max-w-md mx-auto mt-12 flex flex-col items-center gap-8 fade-in-up">
+    <div className={`w-full mx-auto mt-12 flex flex-col items-center gap-8 fade-in-up ${isFinished ? 'max-w-4xl' : 'max-w-md'}`}>
       {isProcessing && (
         <>
           {/* Orbital spinner */}
@@ -52,7 +53,7 @@ export default function ProcessingLoader({ isProcessing, isFinished, onDownload 
       )}
 
       {isFinished && (
-        <div className="flex flex-col items-center gap-6 fade-in-up">
+        <div className="flex flex-col items-center w-full gap-6 fade-in-up">
           {/* Success checkmark */}
           <div className="relative w-20 h-20">
             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30">
@@ -78,6 +79,19 @@ export default function ProcessingLoader({ isProcessing, isFinished, onDownload 
             <Download size={20} className="group-hover:animate-bounce" />
             <span>Download PDF</span>
           </button>
+
+          {pdfData && (
+            <div className="w-full mt-6 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-2xl bg-white">
+              <div className="bg-neutral-100 dark:bg-neutral-900 px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Document Preview</span>
+              </div>
+              <iframe
+                src={`data:application/pdf;base64,${pdfData}#toolbar=0`}
+                className="w-full h-[600px] border-none"
+                title="PDF Preview"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
